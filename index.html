@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speed Test</title>
+<meta name="description" content="Internet speed test with a live monitor for aiming antennas.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%230ea5e9'/%3E%3Cpath d='M16 17 L24 9' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f4f6fa; --panel:#ffffff; --panel2:#eef2f7; --text:#0f172a; --muted:#64748b; --line:#dbe2ec;
+  --accent:#0284c7; --down:#0ea5e9; --up:#a855f7; --good:#16a34a; --warn:#d97706; --bad:#dc2626;
+  --track:#e2e8f0; --shadow:0 1px 3px rgba(15,23,42,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b1120; --panel:#111a2e; --panel2:#18233b; --text:#e5edf8; --muted:#8b9ab3; --line:#24314d;
+    --accent:#38bdf8; --down:#38bdf8; --up:#c084fc; --good:#4ade80; --warn:#fbbf24; --bad:#f87171;
+    --track:#1e2a44; --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b1120; --panel:#111a2e; --panel2:#18233b; --text:#e5edf8; --muted:#8b9ab3; --line:#24314d;
+  --accent:#38bdf8; --down:#38bdf8; --up:#c084fc; --good:#4ade80; --warn:#fbbf24; --bad:#f87171;
+  --track:#1e2a44; --shadow:none;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:16px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;margin-bottom:12px}
+h1{font-size:20px;margin:0;letter-spacing:.2px}
+.server{color:var(--muted);font-size:13px}
+.seg{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg button{border:0;background:transparent;color:var(--muted);padding:6px 12px;border-radius:7px;font:inherit;font-size:14px;cursor:pointer}
+.seg button.on{background:var(--panel);color:var(--text);box-shadow:var(--shadow);font-weight:600}
+.tabs{margin-bottom:12px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+.grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px}
+@media (max-width:760px){.grid{grid-template-columns:minmax(0,1fr)}}
+.gaugeBox{display:flex;flex-direction:column;align-items:center;justify-content:center}
+svg.gauge{width:100%;max-width:380px;height:auto;display:block}
+.gauge .lbl{fill:var(--muted);font-size:11px}
+.gauge .val{fill:var(--text);font-size:44px;font-weight:700;font-variant-numeric:tabular-nums}
+.gauge .unit{fill:var(--muted);font-size:14px}
+.gauge .phase{fill:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:1px}
+.btn{border:0;background:var(--accent);color:#fff;font:inherit;font-weight:600;font-size:16px;padding:11px 28px;border-radius:999px;cursor:pointer;min-width:150px}
+.btn.stop{background:var(--bad)}
+.btn:disabled{opacity:.5;cursor:default}
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.card{background:var(--panel2);border-radius:12px;padding:12px}
+.card .k{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.8px}
+.card .v{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
+.card .v small{font-size:13px;font-weight:500;color:var(--muted);margin-left:4px}
+.card .s{color:var(--muted);font-size:12px;min-height:16px}
+.card.down .v{color:var(--down)} .card.up .v{color:var(--up)}
+.card.big .v{font-size:34px}
+.chartBox{margin-top:14px;position:relative}
+canvas.chart{width:100%;height:190px;display:block}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:12px 0 4px}
+.row label{color:var(--muted);font-size:13px}
+select{font:inherit;font-size:14px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.chk{display:inline-flex;align-items:center;gap:6px;color:var(--text)!important;font-size:14px!important;cursor:pointer}
+.status{color:var(--muted);font-size:13px;min-height:18px;margin-top:8px;text-align:center}
+.status.warn{color:var(--warn)}
+.note{color:var(--muted);font-size:12px;margin-top:10px}
+table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+.tableWrap{overflow-x:auto}
+.linkbtn{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}
+.hidden{display:none!important}
+.best{color:var(--good)!important}
+.live-big{font-size:64px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums;line-height:1}
+.live-big small{font-size:18px;color:var(--muted);font-weight:500}
+.pct{height:10px;background:var(--track);border-radius:6px;overflow:hidden;margin:10px 0 4px}
+.pct div{height:100%;width:0;background:var(--good);transition:width .4s}
+html{-webkit-text-size-adjust:100%;touch-action:manipulation}
+button,select,input{-webkit-tap-highlight-color:transparent}
+.chk input{width:20px;height:20px}
+@media (max-width:520px){
+  .wrap{padding:12px 16px 20px}
+  header{gap:8px}
+  .tabs{display:flex;width:100%}
+  .tabs button{flex:1}
+  .seg button{padding:10px 12px;min-height:42px}
+  .panel{padding:12px}
+  .btn{min-height:48px;width:100%;max-width:320px}
+  select{min-height:42px;font-size:16px}
+  .row{gap:12px}
+  .row label{flex:1 1 140px;display:flex;flex-direction:column;gap:4px}
+  .row label select{width:100%}
+  .row label.chk{flex-direction:row;flex-basis:100%;min-height:40px}
+  .cards{gap:8px}
+  .card{padding:10px}
+  .card .v{font-size:22px}
+  .card.big .v{font-size:26px}
+  canvas.chart{height:160px}
+  svg.gauge{max-width:300px}
+  .linkbtn{min-height:40px}
+}
+footer{color:var(--muted);font-size:12px;text-align:center;margin-top:16px}
+footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Speed Test</h1>
+      <div class="server" id="server">Connecting to Cloudflare…</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <div class="seg" id="unitSeg"><button data-u="mbps">Mbps</button><button data-u="mbs">MB/s</button></div>
+    </div>
+  </header>
+
+  <div class="seg tabs" id="tabSeg">
+    <button data-t="quick" class="on">Quick test</button>
+    <button data-t="live">Live monitor</button>
+    <button data-t="history">History</button>
+  </div>
+
+  <!-- QUICK TEST -->
+  <section id="tab-quick" class="panel">
+    <div class="grid">
+      <div class="gaugeBox">
+        <svg class="gauge" id="gaugeQ" viewBox="0 0 300 250"></svg>
+        <button class="btn" id="qStart">Start test</button>
+        <div class="status" id="qStatus"></div>
+      </div>
+      <div class="cards">
+        <div class="card"><div class="k">Ping</div><div class="v" id="qPing">–<small>ms</small></div><div class="s" id="qPingS"></div></div>
+        <div class="card"><div class="k">Jitter</div><div class="v" id="qJit">–<small>ms</small></div><div class="s"></div></div>
+        <div class="card down"><div class="k">Download</div><div class="v" id="qDown">–<small class="u">Mbps</small></div><div class="s" id="qDownS"></div></div>
+        <div class="card up"><div class="k">Upload</div><div class="v" id="qUp">–<small class="u">Mbps</small></div><div class="s" id="qUpS"></div></div>
+      </div>
+    </div>
+    <div class="chartBox"><canvas class="chart" id="chartQ"></canvas></div>
+  </section>
+
+  <!-- LIVE MONITOR -->
+  <section id="tab-live" class="panel hidden">
+    <div class="row" style="margin-top:0">
+      <label>Duration <select id="lDur">
+        <option value="0">Until stopped</option><option value="1">1 min</option><option value="5">5 min</option>
+        <option value="15">15 min</option><option value="60">60 min</option></select></label>
+      <label>Direction <select id="lDir"><option value="down">Download</option><option value="up">Upload</option></select></label>
+      <label class="chk"><input type="checkbox" id="lSound"> Sound (pitch rises near best)</label>
+    </div>
+    <div class="grid" style="margin-top:8px">
+      <div class="gaugeBox">
+        <svg class="gauge" id="gaugeL" viewBox="0 0 300 250"></svg>
+        <button class="btn" id="lStart">Start live</button>
+        <div class="status" id="lStatus"></div>
+      </div>
+      <div>
+        <div class="cards">
+          <div class="card big down"><div class="k">Live (1 s)</div><div class="v" id="l1">–<small class="u">Mbps</small></div><div class="s"></div></div>
+          <div class="card big down"><div class="k">Average 3 s</div><div class="v" id="l3">–<small class="u">Mbps</small></div><div class="s"></div></div>
+          <div class="card"><div class="k">Session average</div><div class="v" id="lAvg">–<small class="u">Mbps</small></div><div class="s" id="lTime"></div></div>
+          <div class="card"><div class="k">Best position</div><div class="v best" id="lBest">–<small class="u">Mbps</small></div><div class="s" id="lBestT"></div></div>
+          <div class="card"><div class="k">Ping under load</div><div class="v" id="lPing">–<small>ms</small></div><div class="s" id="lPingS"></div></div>
+          <div class="card"><div class="k">Of best</div><div class="v" id="lPct">–<small>%</small></div><div class="pct"><div id="lPctBar"></div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="chartBox"><canvas class="chart" id="chartL"></canvas></div>
+    <div class="note">Tip: turn the antenna slowly and watch “Average 3 s”. “Best position” remembers the highest 3‑second average and when it happened. Live mode uses a lot of data (about 3 GB per minute at 400 Mbps).</div>
+  </section>
+
+  <!-- HISTORY -->
+  <section id="tab-history" class="panel hidden">
+    <div class="row" style="margin-top:0;justify-content:space-between">
+      <div class="server">Stored in this browser only.</div>
+      <button class="linkbtn" id="hClear">Clear history</button>
+    </div>
+    <div class="tableWrap"><table>
+      <thead><tr><th>Time</th><th>Type</th><th>Ping</th><th>Jitter</th><th>Download</th><th>Upload</th><th>Server</th></tr></thead>
+      <tbody id="hBody"></tbody>
+    </table></div>
+    <div class="status" id="hEmpty">No tests yet.</div>
+  </section>
+
+  <footer>Measured against Cloudflare (speed.cloudflare.com). Results depend on your browser and device.</footer>
+</div>
+
+<script>
+'use strict';
+const CF = 'https://speed.cloudflare.com';
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem('st_' + k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem('st_' + k, JSON.stringify(v)); }catch(e){} }
+};
+try{ performance.setResourceTimingBufferSize(2000); }catch(e){}
+
+/* ---------- units ---------- */
+let unit = store.get('unit', 'mbps');
+const unitLabel = () => unit === 'mbps' ? 'Mbps' : 'MB/s';
+function fmt(mbps){
+  if (mbps == null || !isFinite(mbps)) return '–';
+  const v = unit === 'mbps' ? mbps : mbps / 8;
+  return v < 10 ? v.toFixed(2) : v < 100 ? v.toFixed(1) : v.toFixed(0);
+}
+function setSpeed(el, mbps){ el.innerHTML = fmt(mbps) + '<small class="u">' + unitLabel() + '</small>'; }
+function setMs(el, ms){ el.innerHTML = (ms == null ? '–' : ms < 10 ? ms.toFixed(1) : ms.toFixed(0)) + '<small>ms</small>'; }
+
+/* ---------- gauge ---------- */
+class Gauge {
+  constructor(svg){
+    this.svg = svg; this.target = 0; this.shown = 0; this.phase = ''; this.color = 'var(--down)';
+    this.ticks = [0, 10, 50, 100, 250, 500, 750, 1000];
+    this.build(); this.loop();
+  }
+  angle(frac){ return (-225 + 270 * frac) * Math.PI / 180; }
+  pos(v){
+    const t = this.ticks; if (v <= 0) return 0;
+    for (let i = 1; i < t.length; i++) if (v <= t[i]) return (i - 1 + (v - t[i-1]) / (t[i] - t[i-1])) / (t.length - 1);
+    return 1;
+  }
+  arc(f0, f1, r){
+    const a0 = this.angle(f0), a1 = this.angle(f1);
+    const x0 = 150 + r * Math.cos(a0), y0 = 140 + r * Math.sin(a0), x1 = 150 + r * Math.cos(a1), y1 = 140 + r * Math.sin(a1);
+    return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 ${f1 - f0 > 2/3 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+  }
+  build(){
+    let s = `<path d="${this.arc(0, 1, 110)}" stroke="var(--track)" stroke-width="16" fill="none" stroke-linecap="round"/>`;
+    s += `<path class="fill" d="" stroke="${this.color}" stroke-width="16" fill="none" stroke-linecap="round"/>`;
+    this.ticks.forEach((t, i) => {
+      const a = this.angle(i / (this.ticks.length - 1));
+      const lab = unit === 'mbps' ? t : +(t / 8).toFixed(t < 50 ? 2 : 0);
+      s += `<text class="lbl" x="${(150 + 84 * Math.cos(a)).toFixed(1)}" y="${(144 + 84 * Math.sin(a)).toFixed(1)}" text-anchor="middle">${lab}</text>`;
+    });
+    s += `<line class="needle" x1="150" y1="140" x2="150" y2="62" stroke="var(--text)" stroke-width="3" stroke-linecap="round"/>`;
+    s += `<circle cx="150" cy="140" r="6" fill="var(--text)"/>`;
+    s += `<text class="phase" x="150" y="180" text-anchor="middle"></text>`;
+    s += `<text class="val" x="150" y="226" text-anchor="middle">–</text>`;
+    s += `<text class="unit" x="150" y="246" text-anchor="middle">${unitLabel()}</text>`;
+    this.svg.innerHTML = s;
+    this.fill = this.svg.querySelector('.fill'); this.needle = this.svg.querySelector('.needle');
+    this.val = this.svg.querySelector('.val'); this.ph = this.svg.querySelector('.phase');
+    this.ph.textContent = this.phase; this.fill.setAttribute('stroke', this.color);
+    this.draw();
+  }
+  set(v){
+    this.target = Math.max(0, v || 0);
+    const top = this.ticks[this.ticks.length - 1];
+    if (this.target > top * 0.97 && top === 1000){ this.ticks = [0, 50, 100, 250, 500, 1000, 1500, 2500]; this.build(); }
+  }
+  setPhase(p, color){ this.phase = p; this.ph.textContent = p; if (color){ this.color = color; this.fill.setAttribute('stroke', color); } }
+  reset(){ this.target = 0; this.shown = 0; this.ticks = [0, 10, 50, 100, 250, 500, 750, 1000]; this.build(); this.val.textContent = '–'; }
+  draw(){
+    const f = this.pos(this.shown);
+    this.fill.setAttribute('d', f > 0.002 ? this.arc(0, f, 110) : '');
+    const deg = -225 + 270 * f + 90;
+    this.needle.setAttribute('transform', `rotate(${deg.toFixed(2)} 150 140)`);
+    if (this.target > 0 || this.shown > 0.05) this.val.textContent = fmt(this.shown);
+  }
+  loop(){
+    let prev = performance.now();
+    const step = now => {
+      const d = this.target - this.shown, dt = Math.min(1000, now - prev); prev = now;
+      if (Math.abs(d) > 0.01){ this.shown += d * (1 - Math.exp(-dt / 130)); this.draw(); }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+}
+
+/* ---------- chart ---------- */
+class Chart {
+  constructor(canvas, windowSec){ this.c = canvas; this.win = windowSec || 0; this.series = {}; this.markers = []; this.resize(); addEventListener('resize', () => this.resize()); }
+  resize(){ const r = this.c.getBoundingClientRect(), d = devicePixelRatio || 1; this.c.width = Math.max(1, r.width * d); this.c.height = Math.max(1, r.height * d); this.draw(); }
+  clear(){ this.series = {}; this.markers = []; this.draw(); }
+  add(name, x, y, color, dashed){ (this.series[name] = this.series[name] || {pts: [], color, dashed}).pts.push([x, y]); }
+  draw(){
+    const c = this.c, g = c.getContext('2d'), d = devicePixelRatio || 1, W = c.width, H = c.height;
+    const css = getComputedStyle(document.documentElement);
+    const col = n => css.getPropertyValue(n).trim() || '#888';
+    g.clearRect(0, 0, W, H);
+    const L = 44 * d, R = 8 * d, T = 8 * d, B = 20 * d;
+    let xmax = 1, ymax = 0, xmin = 0;
+    for (const s of Object.values(this.series)) for (const [x, y] of s.pts){ if (x > xmax) xmax = x; }
+    if (this.win && xmax > this.win) xmin = xmax - this.win;
+    for (const s of Object.values(this.series)) for (const [x, y] of s.pts){ if (x >= xmin && y > ymax) ymax = y; }
+    const conv = v => unit === 'mbps' ? v : v / 8;
+    let top = conv(ymax) * 1.15 || 1;
+    const raw = top / 4, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    top = 4 * mag * [1, 2, 2.5, 5, 10].find(k => k * mag >= raw);
+    const X = x => L + (x - xmin) / Math.max(1e-9, xmax - xmin) * (W - L - R);
+    const Y = v => T + (1 - conv(v) / top) * (H - T - B);
+    g.font = `${11 * d}px system-ui,sans-serif`; g.fillStyle = col('--muted'); g.strokeStyle = col('--line'); g.lineWidth = d;
+    for (let i = 0; i <= 4; i++){
+      const yv = top * i / 4, yy = T + (1 - i / 4) * (H - T - B);
+      g.beginPath(); g.moveTo(L, yy); g.lineTo(W - R, yy); g.stroke();
+      g.textAlign = 'right'; g.fillText(+yv.toFixed(yv < 10 ? 1 : 0), L - 6 * d, yy + 4 * d);
+    }
+    g.textAlign = 'center';
+    const span = xmax - xmin, stepS = span > 1200 ? 300 : span > 300 ? 60 : span > 60 ? 15 : span > 20 ? 5 : 2;
+    for (let s = Math.ceil(xmin / stepS) * stepS; s <= xmax; s += stepS){
+      const lab = s >= 60 ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}` : s + 's';
+      g.fillText(lab, X(s), H - 5 * d);
+    }
+    for (const s of Object.values(this.series)){
+      const pts = s.pts.filter(p => p[0] >= xmin - 1); if (pts.length < 2) continue;
+      g.strokeStyle = col(s.color); g.lineWidth = (s.dashed ? 1.5 : 2.2) * d; g.setLineDash(s.dashed ? [5 * d, 4 * d] : []);
+      g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y))); g.stroke();
+      if (!s.dashed){
+        g.globalAlpha = 0.12; g.fillStyle = col(s.color); g.lineTo(X(pts[pts.length - 1][0]), Y(0)); g.lineTo(X(pts[0][0]), Y(0)); g.fill(); g.globalAlpha = 1;
+      }
+    }
+    g.setLineDash([]);
+    for (const m of this.markers){
+      if (m.x < xmin) continue;
+      g.fillStyle = col('--good'); g.beginPath(); g.arc(X(m.x), Y(m.y), 4.5 * d, 0, 7); g.fill();
+    }
+  }
+}
+
+/* ---------- measurement engine ---------- */
+class Meter {
+  constructor(){ this.bytes = 0; this.samples = [[performance.now(), 0]]; this.t0 = performance.now(); this.limited = 0; this.errors = 0; }
+  tick(){ const s = this.samples; s.push([performance.now(), this.bytes]); if (s.length > 1200) s.splice(0, s.length - 1200); }
+  rate(ms){ // Mbps over the last `ms`
+    const s = this.samples, last = s[s.length - 1]; let i = s.length - 1;
+    while (i > 0 && last[0] - s[i - 1][0] <= ms) i--;
+    if (i > 0) i--;
+    const dt = last[0] - s[i][0]; return dt > 0 ? (last[1] - s[i][1]) * 8 / dt / 1000 : 0;
+  }
+  since(t, b){ const dt = performance.now() - t; return dt > 0 ? (this.bytes - b) * 8 / dt / 1000 : 0; }
+}
+
+function serverMs(res){
+  const st = res.headers.get('server-timing'); if (!st) return 0;
+  const m = [...st.matchAll(/cfSpeed\w*;dur=([\d.]+)/g)].map(x => +x[1]);
+  return m.length ? Math.max(...m) : 0;
+}
+async function pingOnce(signal){
+  const url = `${CF}/__down?bytes=0&r=${Math.random().toString(36).slice(2)}`;
+  const t0 = performance.now();
+  const res = await fetch(url, {cache: 'no-store', signal});
+  await res.arrayBuffer();
+  let rtt = performance.now() - t0;
+  const e = performance.getEntriesByName(url).pop();
+  if (e && e.duration > 0) rtt = Math.min(rtt, e.duration);
+  if (e) performance.clearResourceTimings();
+  return Math.max(0.3, rtt - serverMs(res));
+}
+
+function runTransfer(dir, meter, signal, streams){
+  const workers = [];
+  for (let i = 0; i < streams; i++) workers.push(dir === 'down' ? downWorker(meter, signal) : upWorker(meter, signal));
+  return Promise.all(workers);
+}
+async function backoffWait(meter, signal, st){
+  meter.limited++; await sleep(st.backoff); st.backoff = Math.min(st.backoff * 2, 15000);
+}
+async function downWorker(meter, signal){
+  let size = 1e6; const st = {backoff: 1000};
+  while (!signal.aborted){
+    try{
+      const t0 = performance.now();
+      const res = await fetch(`${CF}/__down?bytes=${size}&r=${Math.random().toString(36).slice(2)}`, {cache: 'no-store', signal});
+      if (res.status === 429){ res.body && res.body.cancel(); size = Math.min(size, 10e6); await backoffWait(meter, signal, st); continue; }
+      if (!res.ok){ meter.errors++; await sleep(1000); continue; }
+      st.backoff = 1000;
+      const rd = res.body.getReader();
+      for (;;){ const {done, value} = await rd.read(); if (done) break; meter.bytes += value.length; }
+      const dt = performance.now() - t0;
+      if (dt < 1500 && size < 25e6) size = Math.min(25e6, size * 4);
+      else if (dt > 6000 && size > 1e6) size = Math.max(1e6, size / 4);
+      performance.clearResourceTimings();
+    }catch(e){ if (signal.aborted) return; meter.errors++; await sleep(500); }
+  }
+}
+const upBlobs = {};
+function upBlob(size){
+  if (!upBlobs[size]){ const a = new Uint8Array(size); for (let i = 0; i < size; i += 4096) a[i] = (Math.random() * 256) | 0; upBlobs[size] = new Blob([a]); }
+  return upBlobs[size];
+}
+async function upWorker(meter, signal){
+  let size = 1e6; const st = {backoff: 1000};
+  while (!signal.aborted){
+    const t0 = performance.now();
+    const status = await new Promise(resolve => {
+      const x = new XMLHttpRequest(); let last = 0;
+      const onAbort = () => x.abort();
+      signal.addEventListener('abort', onAbort, {once: true});
+      x.open('POST', `${CF}/__up?r=${Math.random().toString(36).slice(2)}`);
+      x.upload.onprogress = e => { meter.bytes += e.loaded - last; last = e.loaded; };
+      x.onload = () => { if (x.status === 200) meter.bytes += size - last; signal.removeEventListener('abort', onAbort); resolve(x.status); };
+      x.onerror = () => { signal.removeEventListener('abort', onAbort); resolve(-1); };
+      x.onabort = () => resolve(0);
+      x.send(upBlob(size));
+    });
+    if (signal.aborted) return;
+    if (status === 429){ size = Math.min(size, 10e6); await backoffWait(meter, signal, st); continue; }
+    if (status !== 200){ meter.errors++; await sleep(1000); continue; }
+    st.backoff = 1000;
+    const dt = performance.now() - t0;
+    if (dt < 1500 && size < 25e6) size = Math.min(25e6, size * 4);
+    else if (dt > 6000 && size > 1e6) size = Math.max(1e6, size / 4);
+  }
+}
+function median(a){ if (!a.length) return null; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
+function jitterOf(a){ if (a.length < 2) return 0; let t = 0; for (let i = 1; i < a.length; i++) t += Math.abs(a[i] - a[i - 1]); return t / (a.length - 1); }
+
+/* ---------- server info ---------- */
+let meta = null;
+async function loadMeta(){
+  try{
+    const r = await fetch(CF + '/meta', {cache: 'no-store'}); meta = await r.json();
+    const colo = meta.colo ? `${meta.colo.city} (${meta.colo.iata})` : '';
+    $('server').textContent = `Server: Cloudflare ${colo} · ISP: ${meta.asOrganization || '?'} · IP: ${meta.clientIp || '?'}`;
+  }catch(e){ $('server').textContent = 'Server: Cloudflare (info unavailable)'; }
+}
+const serverName = () => meta && meta.colo ? meta.colo.iata + ' ' + meta.colo.city : 'Cloudflare';
+
+/* ---------- UI: tabs & units ---------- */
+const gQ = new Gauge($('gaugeQ')), gL = new Gauge($('gaugeL'));
+const cQ = new Chart($('chartQ')), cL = new Chart($('chartL'), 180);
+let lastQuick = null;
+function applyUnit(){
+  document.querySelectorAll('#unitSeg button').forEach(b => b.classList.toggle('on', b.dataset.u === unit));
+  document.querySelectorAll('small.u').forEach(s => s.textContent = unitLabel());
+  [gQ, gL].forEach(g => { g.build(); });
+  if (lastQuick){ if (lastQuick.down != null) setSpeed($('qDown'), lastQuick.down); if (lastQuick.up != null) setSpeed($('qUp'), lastQuick.up); }
+  if (live) live.render();
+  cQ.draw(); cL.draw(); renderHistory();
+}
+$('unitSeg').onclick = e => { const u = e.target.dataset && e.target.dataset.u; if (!u) return; unit = u; store.set('unit', u); applyUnit(); };
+$('tabSeg').onclick = e => {
+  const t = e.target.dataset && e.target.dataset.t; if (!t) return;
+  document.querySelectorAll('#tabSeg button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  ['quick', 'live', 'history'].forEach(n => $('tab-' + n).classList.toggle('hidden', n !== t));
+  store.set('tab', t);
+  if (t === 'quick') cQ.resize(); if (t === 'live') cL.resize(); if (t === 'history') renderHistory();
+};
+
+/* ---------- history ---------- */
+function addHistory(entry){ const h = store.get('history', []); h.unshift(entry); store.set('history', h.slice(0, 200)); }
+function renderHistory(){
+  const h = store.get('history', []);
+  $('hEmpty').classList.toggle('hidden', h.length > 0);
+  const ms = v => v == null ? '–' : (v < 10 ? v.toFixed(1) : v.toFixed(0)) + ' ms';
+  const sp = v => v == null ? '–' : fmt(v) + ' ' + unitLabel();
+  $('hBody').innerHTML = h.map(e => {
+    const d = new Date(e.t), when = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+    if (e.type === 'live'){
+      const v = e.dir === 'up' ? [null, `avg ${sp(e.avg)} · best ${sp(e.best)}`] : [`avg ${sp(e.avg)} · best ${sp(e.best)}`, null];
+      return `<tr><td>${when}</td><td>Live ${Math.round(e.secs / 60 * 10) / 10} min</td><td>${ms(e.ping)}</td><td>–</td><td>${v[0] || '–'}</td><td>${v[1] || '–'}</td><td>${e.server || ''}</td></tr>`;
+    }
+    return `<tr><td>${when}</td><td>Quick</td><td>${ms(e.ping)}</td><td>${ms(e.jitter)}</td><td>${sp(e.down)}</td><td>${sp(e.up)}</td><td>${e.server || ''}</td></tr>`;
+  }).join('');
+}
+$('hClear').onclick = () => { if (confirm('Clear all saved results?')){ store.set('history', []); renderHistory(); } };
+
+/* ---------- quick test ---------- */
+let quickCtl = null;
+async function quickTest(){
+  if (quickCtl){ quickCtl.abort(); return; }
+  if (live) live.stop();
+  quickCtl = new AbortController(); const signal = quickCtl.signal;
+  const btn = $('qStart'), status = $('qStatus');
+  btn.textContent = 'Stop'; btn.classList.add('stop'); status.className = 'status';
+  ['qPing', 'qJit'].forEach(id => setMs($(id), null)); ['qDown', 'qUp'].forEach(id => setSpeed($(id), null));
+  ['qPingS', 'qDownS', 'qUpS'].forEach(id => $(id).textContent = '');
+  cQ.clear(); gQ.reset(); lastQuick = {};
+  const result = {t: Date.now(), type: 'quick', server: serverName()};
+  try{
+    if (!meta) await loadMeta();
+    // ping
+    gQ.setPhase('Ping', 'var(--accent)'); status.textContent = 'Measuring latency…';
+    await pingOnce(signal);
+    const pings = [];
+    for (let i = 0; i < 20 && !signal.aborted; i++){ pings.push(await pingOnce(signal)); setMs($('qPing'), median(pings)); setMs($('qJit'), jitterOf(pings)); }
+    result.ping = median(pings); result.jitter = jitterOf(pings);
+    $('qPingS').textContent = `min ${Math.min(...pings).toFixed(1)} · max ${Math.max(...pings).toFixed(1)}`;
+    // download & upload
+    let xOff = 0;
+    for (const dir of ['down', 'up']){
+      if (signal.aborted) break;
+      const color = dir === 'down' ? '--down' : '--up', el = $(dir === 'down' ? 'qDown' : 'qUp');
+      gQ.reset(); gQ.setPhase(dir === 'down' ? 'Download' : 'Upload', `var(${color})`);
+      status.textContent = dir === 'down' ? 'Testing download…' : 'Testing upload…';
+      const ctl = new AbortController(); const onAbort = () => ctl.abort(); signal.addEventListener('abort', onAbort);
+      const m = new Meter(), DUR = 10000, WARM = 2000;
+      const loaded = [];
+      const task = runTransfer(dir, m, ctl.signal, dir === 'down' ? 6 : 4);
+      const pinger = (async () => { await sleep(1000); while (!ctl.signal.aborted){ try{ loaded.push(await pingOnce(ctl.signal)); }catch(e){} await sleep(400); } })();
+      let warmT = null, warmB = 0, n = 0;
+      while (!ctl.signal.aborted){
+        await sleep(100); m.tick(); n++;
+        const el_ms = performance.now() - m.t0;
+        if (warmT === null && el_ms >= WARM){ warmT = performance.now(); warmB = m.bytes; }
+        const cur = m.rate(dir === 'down' ? 1000 : 2000); gQ.set(cur);
+        if (n % 2 === 0){ cQ.add(dir, xOff + el_ms / 1000, cur, color); cQ.draw(); }
+        const avg = warmT ? m.since(warmT, warmB) : cur; setSpeed(el, avg);
+        if (m.limited) { status.textContent = 'Server rate limit (429) – retrying…'; status.className = 'status warn'; }
+        if (el_ms >= DUR) break;
+      }
+      const final = warmT ? m.since(warmT, warmB) : m.rate(DUR);
+      ctl.abort(); signal.removeEventListener('abort', onAbort); await Promise.allSettled([task, pinger]);
+      if (signal.aborted) break;
+      result[dir] = final; lastQuick[dir] = final; setSpeed(el, final); gQ.set(final);
+      $(dir === 'down' ? 'qDownS' : 'qUpS').textContent = loaded.length ? `ping under load ${median(loaded).toFixed(0)} ms` : '';
+      result[dir + 'Loaded'] = median(loaded);
+      status.className = 'status';
+      xOff += DUR / 1000;
+    }
+    if (!signal.aborted){
+      addHistory(result);
+      gQ.setPhase('Done', 'var(--down)');
+      status.textContent = `Download ${fmt(result.down)} · Upload ${fmt(result.up)} ${unitLabel()} · Ping ${result.ping.toFixed(1)} ms`;
+    } else { status.textContent = 'Stopped.'; gQ.set(0); }
+  }catch(e){
+    if (!signal.aborted){ status.textContent = 'Error: ' + (e.message || e) + '. Check your connection and try again.'; status.className = 'status warn'; }
+    gQ.set(0);
+  }finally{
+    quickCtl = null; btn.textContent = 'Start test'; btn.classList.remove('stop');
+  }
+}
+$('qStart').onclick = quickTest;
+
+/* ---------- live monitor ---------- */
+let live = null, audioCtx = null, wakeLock = null;
+// Must run inside a tap/click handler: iOS only allows audio that was started by the user.
+function unlockAudio(){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state !== 'running') audioCtx.resume();
+    const b = audioCtx.createBuffer(1, 1, 22050), s = audioCtx.createBufferSource();
+    s.buffer = b; s.connect(audioCtx.destination); s.start(0);
+  }catch(e){}
+}
+async function keepAwake(){
+  try{ if ('wakeLock' in navigator && !wakeLock){ wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } }catch(e){}
+}
+function allowSleep(){ try{ if (wakeLock) wakeLock.release(); }catch(e){} wakeLock = null; }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && live) keepAwake(); });
+$('lSound').addEventListener('change', () => { if ($('lSound').checked) unlockAudio(); });
+function beep(freq){
+  try{
+    if (!audioCtx || audioCtx.state !== 'running') return;
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain(), t = audioCtx.currentTime;
+    o.type = 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.25, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+    o.connect(g).connect(audioCtx.destination); o.start(t); o.stop(t + 0.2);
+  }catch(e){}
+}
+function hms(s){ s = Math.floor(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); }
+class Live {
+  constructor(){
+    this.dir = $('lDir').value; this.durMin = +$('lDur').value;
+    this.ctl = new AbortController(); this.m = new Meter(); this.pings = []; this.best = 0; this.bestAt = null; this.bestEl = 0;
+    this.cur = 0; this.avg3 = 0; this.sess = 0; this.secs = 0;
+    this.color = this.dir === 'down' ? '--down' : '--up';
+    cL.clear(); gL.reset(); gL.setPhase(this.dir === 'down' ? 'Live download' : 'Live upload', `var(${this.color})`);
+    $('lStart').textContent = 'Stop'; $('lStart').classList.add('stop');
+    $('lDir').disabled = $('lDur').disabled = true;
+    $('lStatus').className = 'status'; $('lStatus').textContent = 'Starting…';
+    if ($('lSound').checked) beep(440);
+    this.task = runTransfer(this.dir, this.m, this.ctl.signal, 4);
+    this.pinger = (async () => { await sleep(1500); while (!this.ctl.signal.aborted){ try{ this.pings.push(await pingOnce(this.ctl.signal)); if (this.pings.length > 60) this.pings.shift(); }catch(e){} await sleep(1000); } })();
+    this.fast = setInterval(() => { this.m.tick(); gL.set(this.m.rate(1000)); }, 100);
+    this.slow = setInterval(() => this.second(), 1000);
+    this.warmT = null; this.warmB = 0;
+  }
+  second(){
+    const el = (performance.now() - this.m.t0) / 1000; this.secs = el;
+    if (this.warmT === null && el >= 2){ this.warmT = performance.now(); this.warmB = this.m.bytes; }
+    this.cur = this.m.rate(1000); this.avg3 = this.m.rate(3000);
+    this.sess = this.warmT ? this.m.since(this.warmT, this.warmB) : this.cur;
+    if (el >= 3 && this.avg3 > this.best){ this.best = this.avg3; this.bestAt = new Date(); this.bestEl = el; cL.markers = [{x: el, y: this.avg3}]; }
+    cL.add('live', el, this.cur, this.color); cL.add('avg3', el, this.avg3, '--good', true); cL.draw();
+    this.render();
+    if ($('lSound').checked && this.best > 0){
+      const r = Math.max(0, Math.min(1, this.avg3 / this.best));
+      beep(220 + 880 * r * r);
+    }
+    const st = $('lStatus');
+    if (this.m.limited && this.m.rate(3000) < 0.01){ st.textContent = 'Server rate limit (429) – waiting and retrying…'; st.className = 'status warn'; }
+    else { st.className = 'status'; st.textContent = `Running ${hms(el)}` + (this.durMin ? ` of ${this.durMin}:00` : '') + ` · ${(this.m.bytes / 1e9).toFixed(2)} GB transferred`; }
+    if (this.durMin && el >= this.durMin * 60) this.stop(true);
+  }
+  render(){
+    setSpeed($('l1'), this.cur); setSpeed($('l3'), this.avg3); setSpeed($('lAvg'), this.sess);
+    setSpeed($('lBest'), this.best || null);
+    $('lTime').textContent = this.secs ? 'over ' + hms(this.secs) : '';
+    $('lBestT').textContent = this.bestAt ? `at ${this.bestAt.toLocaleTimeString()} (${hms(this.bestEl)} in)` : '';
+    const p = this.pings.slice(-5);
+    setMs($('lPing'), p.length ? median(p) : null);
+    $('lPingS').textContent = this.pings.length ? `median of last ${p.length}` : '';
+    const pct = this.best ? Math.round(this.avg3 / this.best * 100) : null;
+    $('lPct').innerHTML = (pct == null ? '–' : pct) + '<small>%</small>';
+    $('lPctBar').style.width = (pct || 0) + '%';
+    $('lPctBar').style.background = pct == null ? 'var(--good)' : pct >= 90 ? 'var(--good)' : pct >= 70 ? 'var(--warn)' : 'var(--bad)';
+  }
+  stop(finished){
+    if (this.stopped) return; this.stopped = true;
+    this.ctl.abort(); clearInterval(this.fast); clearInterval(this.slow); gL.set(0); allowSleep();
+    $('lStart').textContent = 'Start live'; $('lStart').classList.remove('stop');
+    $('lDir').disabled = $('lDur').disabled = false;
+    if (this.secs >= 5){
+      addHistory({t: Date.now(), type: 'live', dir: this.dir, secs: this.secs, avg: this.sess, best: this.best, ping: median(this.pings), server: serverName()});
+    }
+    $('lStatus').className = 'status';
+    $('lStatus').textContent = (finished ? 'Finished' : 'Stopped') + ` after ${hms(this.secs)} · average ${fmt(this.sess)} ${unitLabel()} · best ${fmt(this.best)} ${unitLabel()}`;
+    if ($('lSound').checked) beep(330);
+    live = null; liveLast = this;
+  }
+}
+let liveLast = null;
+$('lStart').onclick = () => {
+  if (live){ live.stop(false); return; }
+  if (quickCtl) quickCtl.abort();
+  if ($('lSound').checked) unlockAudio();
+  keepAwake();
+  if (!meta) loadMeta();
+  live = new Live();
+};
+
+/* ---------- init ---------- */
+applyUnit();
+const savedTab = store.get('tab', 'quick');
+if (savedTab !== 'quick'){ const b = document.querySelector(`#tabSeg button[data-t="${savedTab}"]`); if (b) b.click(); }
+loadMeta();
+</script>
+</body>
+</html>
